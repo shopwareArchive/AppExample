@@ -14,8 +14,7 @@ variables:
         # Tell Symfony to always install in production-mode.
         APP_ENV: 'env'
         APP_DEBUG: 0
-        APP_NAME: 'SwagApp'
-        APP_SECRET: 's3cr3t'
+        DATABASE_URL: mysql://user:@database.internal:3306/main
 
 # The hooks that will be performed when the package is deployed.
 hooks:
@@ -58,4 +57,3 @@ web:
             root: "public"
             # The front-controller script to send non-static requests to.
             passthru: "/index.php"
-
