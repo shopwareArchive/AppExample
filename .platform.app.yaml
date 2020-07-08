@@ -13,6 +13,8 @@ variables:
     env:
         # Tell Symfony to always install in production-mode.
         APP_ENV: 'env'
+        APP_NAME: SwagExampleApp
+        APP_SECRET: 143af21f36dda6b4bc40df8cb045616d
         APP_DEBUG: 0
         DATABASE_URL: mysql://user:@database.internal:3306/main
 
