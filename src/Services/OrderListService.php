@@ -5,17 +5,25 @@ namespace App\Services;
 use App\Repository\ShopRepository;
 use App\SwagAppsystem\Client;
 use App\SwagAppsystem\Event;
-use Symfony\Component\HttpFoundation\ParameterBag;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
-class OrderListService
+class OrderListService extends AbstractController
 {
-    //Authenticates the order-id and the order-signature
-    public static function authenticateOrderListLink(ShopRepository $shopRepository, ParameterBag $requestQuery): bool
+    /**
+     * @var ShopRepository
+     */
+    private $shopRepository;
+
+    public function __construct(ShopRepository $shopRepository)
     {
-        $secret = $shopRepository->getSecretByShopId($requestQuery->get('shop-id'));
-        $orderId = $requestQuery->get('order-id');
-        $orderSignature = $requestQuery->get('order-signature');
-        $hmac = hash_hmac('sha256', $orderId, $secret);
+        $this->shopRepository = $shopRepository;
+    }
+
+    //Authenticates the order-id and the order-signature
+    public function authenticateOrderListLink(string $shopId, string $orderId, string $orderSignature): bool
+    {
+        $secret = $this->shopRepository->getSecretByShopId($shopId);
+        $hmac = $this->generateOrderSignature($orderId, $secret);
 
         return hash_equals($orderSignature, $hmac);
     }
@@ -23,7 +31,7 @@ class OrderListService
     //Updates an existing order.
     //These steps are necessary because you need to create a new version for each order which you want to edit.
     //A new version will be created and then merged if you finished editing.
-    public static function updateOrder(Client $client, $orderId, $data): void
+    public function updateOrder(Client $client, string $orderId, array $data): void
     {
         $httpClient = $client->getHttpClient();
 
@@ -39,14 +47,14 @@ class OrderListService
     }
 
     //Generates a deep link to the order.
-    public static function generateOrderListLink(ShopRepository $shopRepository, Event $event, string $orderId, string $url): string
+    public function generateOrderListLink(Event $event, string $orderId, string $url): string
     {
-        $secret = $shopRepository->getSecretByShopId($event->getShopId());
+        $secret = $this->shopRepository->getSecretByShopId($event->getShopId());
         $date = new \DateTime();
 
         //Generates the order-signature.
         //This is needed to authenticate the request later.
-        $orderSignature = hash_hmac('sha256', $orderId, $secret);
+        $orderSignature = $this->generateOrderSignature($orderId, $secret);
 
         $queryString = sprintf(
             'shop-id=%s&shop-url=%s&timestamp=%s',
@@ -69,12 +77,20 @@ class OrderListService
         );
     }
 
-    //Returns the configuration for the order list table with the line items.
-    //Uses only the orderId to build the order list.
-    public static function getOrderListConfigurationFromOrderId(Client $client, string $orderId): array
+    //Generates the order list table data from an order.
+    public function getOrderListConfigurationFromOrder(array $order): array
+    {
+        //Get the formatted line items.
+        $lineItems = $this->mapLineItemsForConfigurationOrderListTable($order);
+
+        return $this->setConfigurationOrderListTable($lineItems);
+    }
+
+    //Generates the order list table data from an order id.
+    public function getOrderListConfigurationFromOrderId(Client $client, string $orderId): array
     {
         //Get the order with the line items.
-        $order = $client->search('order', [
+        $orderSearchResult = $client->search('order', [
             'associations' => [
                 'lineItems' => [
                     'total-count-mode' => 1,
@@ -94,44 +110,19 @@ class OrderListService
             ],
         ]);
 
-        $orderNumber = $order['data'][0]['orderNumber'];
+        $order = $orderSearchResult['data'][0] ?? null;
 
-        $lineItems = [];
-        $counter = 0;
+        //Get the formatted line items.
+        $lineItems = $this->mapLineItemsForConfigurationOrderListTable($order);
 
-        //Format the line items.
-        foreach ($order['data'][0]['lineItems'] as $lineItem) {
-            $lineItems[$counter]['orderNumber'] = $orderNumber;
-            $lineItems[$counter]['productNumber'] = $lineItem['payload']['productNumber'];
-            $lineItems[$counter]['label'] = $lineItem['label'];
-            $lineItems[$counter]['quantity'] = $lineItem['quantity'];
-            $lineItems[$counter]['checked'] = '';
-            ++$counter;
-        }
-
-        return self::setConfigurationOrderListTable($lineItems);
+        return $this->setConfigurationOrderListTable($lineItems);
     }
 
-    //Returns the configuration for the order list table with the line items
-    //Uses the line items and the order number to build the order list.
-    public static function getOrderListConfigurationFromLineItems(array $lineItems, string $orderNumber): array
-    {
-        //Format the line items.
-        for ($i = 0; $i < count($lineItems); ++$i) {
-            $lineItems[$i]['orderNumber'] = $orderNumber;
-            $lineItems[$i]['productNumber'] = $lineItems[$i]['payload']['productNumber'];
-            $lineItems[$i]['checked'] = '';
-        }
-
-        return self::setConfigurationOrderListTable($lineItems);
-    }
-
-    //Returns the configuration for the order list table with the line items
-    //Fetches all open orders with their line items to build the order list.
-    public static function getOrderListConfigurationForAllOpenOrders(Client $client): array
+    //Generates the order list table data from all open orders.
+    public function getOrderListConfigurationForAllOpenOrders(Client $client): array
     {
         //Get all open orders with their line items.
-        $orders = $client->search('order', [
+        $ordersSearchResult = $client->search('order', [
             'associations' => [
                 'lineItems' => [
                     'total-count-mode' => 1,
@@ -160,27 +151,35 @@ class OrderListService
         ]);
 
         $lineItems = [];
-        $counter = 0;
 
         //Format the line items
-        foreach ($orders['data'] as $order) {
-            foreach ($order['lineItems'] as $lineItem) {
-                $lineItems[$counter]['orderNumber'] = $order['orderNumber'];
-                $lineItems[$counter]['productNumber'] = $lineItem['payload']['productNumber'];
-                $lineItems[$counter]['label'] = $lineItem['label'];
-                $lineItems[$counter]['quantity'] = $lineItem['quantity'];
-                $lineItems[$counter]['checked'] = '';
-                ++$counter;
-            }
+        foreach ($ordersSearchResult['data'] as $order) {
+            $lineItems = array_merge(
+                $lineItems,
+                $this->mapLineItemsForConfigurationOrderListTable($order)
+            );
         }
 
-        return self::setConfigurationOrderListTable($lineItems);
+        return $this->setConfigurationOrderListTable($lineItems);
+    }
+
+    private function mapLineItemsForConfigurationOrderListTable(array $order): array
+    {
+        foreach ($order['lineItems'] as $lineItem) {
+            $lineItems[] = [
+                'orderNumber' => $order['orderNumber'],
+                'productNumber' => $lineItem['payload']['productNumber'],
+                'label' => $lineItem['label'],
+                'quantity' => $lineItem['quantity'],
+                'checked' => '',
+            ];
+        }
+
+        return $lineItems;
     }
 
     //Set the configuration for the order-list-table template with the line items.
-    //The key of each header defines the header of the table.
-    //The corresponding value of each key from the header will be the key for the line items,
-    private static function setConfigurationOrderListTable(array $lineItems): array
+    private function setConfigurationOrderListTable(array $lineItems): array
     {
         return [
             'header' => [
@@ -192,5 +191,11 @@ class OrderListService
             ],
             'lineItems' => $lineItems,
         ];
+    }
+
+    //Generates the order signature.
+    private function generateOrderSignature(string $orderId, string $secret): string
+    {
+        return hash_hmac('sha256', $orderId, $secret);
     }
 }
