@@ -1,10 +1,10 @@
-#App system example
+# App system example
   
 This app allows you to generate and print order lists for each order.
 These lists contain all products of that order in a print friendly way.
 So that they can be used as a checklist during packing.
 
-##Caution
+## Caution
 
 This is a pre configured app.  
 You should **not** use this in production.  
@@ -19,7 +19,7 @@ To use multiple apps simultaneously for testing purposes, you also need to chang
 The `APP_NAME` and the `APP_SECRET` are both located in the [.platform.app.yaml](.platform.app.yaml) file.  
 They also need to be changed in your `manifest.xml` file
 
-##The manifest.xml
+## The manifest.xml
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
