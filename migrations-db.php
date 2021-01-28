@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'dbname' => 'main',
+    'dbname' => 'app_example',
     'user' => 'user',
     'password' => '',
     'host' => 'database.internal:3306',
