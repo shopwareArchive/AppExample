@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Repository\ShopRepository;
 use App\SwagAppsystem\Client;
-use App\SwagAppsystem\Event;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
 class OrderListService extends AbstractController
@@ -17,15 +16,6 @@ class OrderListService extends AbstractController
     public function __construct(ShopRepository $shopRepository)
     {
         $this->shopRepository = $shopRepository;
-    }
-
-    //Authenticates the order-id and the order-signature
-    public function authenticateOrderListLink(string $shopId, string $orderId, string $orderSignature): bool
-    {
-        $secret = $this->shopRepository->getSecretByShopId($shopId);
-        $hmac = $this->generateOrderSignature($orderId, $secret);
-
-        return hash_equals($orderSignature, $hmac);
     }
 
     //Updates an existing order.
@@ -44,37 +34,6 @@ class OrderListService extends AbstractController
 
         //Merges the changes into the new version of the order.
         $httpClient->post('/api/v2/_action/version/merge/order/' . $versionId, ['headers' => ['sw-version-id' => $versionId]]);
-    }
-
-    //Generates a deep link to the order.
-    public function generateOrderListLink(Event $event, string $orderId, string $url): string
-    {
-        $secret = $this->shopRepository->getSecretByShopId($event->getShopId());
-        $date = new \DateTime();
-
-        //Generates the order-signature.
-        //This is needed to authenticate the request later.
-        $orderSignature = $this->generateOrderSignature($orderId, $secret);
-
-        $queryString = sprintf(
-            'shop-id=%s&shop-url=%s&timestamp=%s',
-            $event->getShopId(),
-            urlencode($event->getShopUrl()),
-            $date->getTimestamp()
-        );
-
-        //Creates the default signature for a GET request.
-        //This is needed to authenticate the request and inject the client.
-        $signature = hash_hmac('sha256', $queryString, $secret);
-
-        return sprintf(
-            '%s?%s&shopware-shop-signature=%s&order-id=%s&order-signature=%s',
-            $url,
-            $queryString,
-            $signature,
-            $orderId,
-            $orderSignature
-        );
     }
 
     //Generates the order list table data from an order.
