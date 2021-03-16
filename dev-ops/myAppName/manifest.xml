@@ -14,6 +14,11 @@
     </meta>
 
     <admin>
+        <action-button action="addOrderList" entity="order" view="detail" url="http://example/actionbutton/add/orderlist">
+            <label>Add order list</label>
+            <label lang="de-DE">Bestellliste hinzufügen</label>
+        </action-button>
+
         <action-button action="orderActionButtonTest" entity="order" view="detail" url="http://example:5000/actionbutton/order">
             <label>Add order list</label>
             <label lang="de-DE">Bestellliste hinzufügen</label>
@@ -32,9 +37,43 @@
         <delete>product</delete>
         <read>tax</read>
         <read>currency</read>
+        <create>order</create>
+        <read>order</read>
+        <update>order</update>
+        <create>customer</create>
+        <read>customer</read>
+        <read>order_line_item</read>
+        <create>customer_address</create>
+        <read>customer_group</read>
+        <read>payment_method</read>
+        <read>sales_channel</read>
+        <read>salutation</read>
+        <read>currency</read>
+        <read>shipping_method</read>
+        <read>country</read>
+        <read>language</read>
+        <create>product_visibility</create>
     </permissions>
 
+    <custom-fields>
+        <custom-field-set>
+            <name>swag_orderlist</name>
+            <label>Order list</label>
+            <related-entities>
+                <order/>
+            </related-entities>
+            <fields>
+                <text-area name="order-list">
+                    <position>1</position>
+                    <label>Order list</label>
+                    <label lang="de-DE">Bestellliste</label>
+                </text-area>
+            </fields>
+        </custom-field-set>
+    </custom-fields>
+
     <webhooks>
+        <webhook name="checkoutOrderPlaced" url="http://example/hooks/order/placed" event="checkout.order.placed"/>
         <webhook name="productWritten" url="http://example:5000/product/written" event="product.written"/>
     </webhooks>
 </manifest>
