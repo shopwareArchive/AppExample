@@ -1,29 +1,33 @@
-# App system example
-  
-This app allows you to generate and print order lists for each order.
-These lists contain all products of that order in a print friendly way.
-So that they can be used as a checklist during packing.
+## Platform-sh
 
-## App actions
+This is a fully working example based on the [development template](https://github.com/shopwareLabs/AppTemplate).
+The development template is optimized for the use with [platform.sh](https://platform.sh/).  
 
-- If a customer orders something in the checkout, an order list will be saved in the custom fields of an order.
-- This can also be done with the action button in the admin order details.
-- You can see the list of all orders with a print button if you navigate to `Extensions > My extensions` and click the `open app` link for the Swag Example App.
+With this development template in addition with platform.sh you can easily develop your own app.  
+You don't need to think about the hosting and communication with the shop.  
+This will all be done by platform.sh and our controller and services. 
 
-## Caution
+## Getting started
 
-This is a pre configured app.  
-You should **not** use this in production.  
-In order to use this in production, you need to change the `APP_NAME` and the `APP_SECRET`.
+In order to use this template for development or for production you need to configure two things.  
 
-The  `APP_SECRET` is needed to process the registration.  
-Due to this everyone could register their shops to your app if you would use the default `APP_SECRET`.  
+* The `APP_NAME` (the unique name of your app, the root app folder has to be named equally)
+* The `APP_SECRET` (a secret which is needed for the registration process)
 
-The `APP_NAME` is an unique identifier for your app.  
-To use multiple apps simultaneously for testing purposes, you also need to change the `APP_NAME`. 
+You need to set both of them in your `manifest.xml` but also in the [.platform.app.yaml](.platform.app.yaml).
 
-The `APP_NAME` and the `APP_SECRET` are both located in the [.platform.app.yaml](.platform.app.yaml) file.  
-They also need to be changed in your `manifest.xml` file.
+An example for the `manifest.xml` would be:
+
+```xml
+<manifest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/app-system/0.1.0/src/Core/Content/App/Manifest/Schema/manifest-1.0.xsd">
+    <meta>
+        <name>myAppName</name>
+    </meta>
+    <setup>
+        <secret>myAppSecret</secret>
+    </setup>
+</manifest>
+```
 
 An example for the [.platform.app.yaml](.platform.app.yaml) would be:
 ```yaml
@@ -34,6 +38,15 @@ variables:
 ```
 
 These should also be changed in the `.env` to develop locally. 
+
+## Create the manifest.xml
+To easily create `manifest.xml`-files you can use the `bin/console app:create-manifest` command.  
+This command will generate a manifest from the [template](templates/manifest-template.xml).  
+For testing purposes this is the default manifest template from our example app.  
+In there you can use `{{ APP_NAME }}`,`{{ APP_SECRET }}`,`{{ APP_URL_CLIENT }}` and `{{ APP_URL_BACKEND }}` which will get replaced by the values configured in your `.env`.  
+Further more you can use your own variables like `{{ MY_OWN_VARIABLE }}` and declare them when executing the command like this `bin/console app:create-manifest MY_OWN_VARIABLE=MY_OWN_VARIABLE_VALUE`.  
+This allows you to easily change URL's in your `manifest.xml` without changing the `.env` file.  
+The generated `manifest.xml` can be found in `build/dev`.  
 
 ## Development
 
@@ -245,3 +258,225 @@ To check your code style just execute `vendor/bin/ecs check` or add `--fix` to a
 
 To make sure that your code is working correctly you can write your own tests in `tests`.  
 In order to execute those just execute `vendor/bin/phpunit`.  
+
+
+## Local development with docker
+#### Getting started
+
+To develop your own apps locally, you need to do some changes to your existing Shopware development setup.  
+I assume that you have already set up your local Shopware development setup.  
+If not here you get more information about the setup [docs.shopware.com](https://docs.shopware.com/en/shopware-platform-dev-en/getting-started).  
+At first, you should clone the app template from [GitHub](https://github.com/shopwareLabs/AppTemplate) and create a `manifest.xml` for your app.  
+For further information about the `manifest.xml` have a look at our [documentation](https://docs.shopware.com/en/shopware-platform-dev-en/app-system-guide/setup#manifest-file).
+Or for a fully working example based on this template watch out for our [appExample](https://github.com/shopwareLabs/AppExample).    
+
+Your folder structure should look as follows:
+```
+...
+│
+├──development
+│  ├──custom
+│  │  └───apps
+│  │      └───yourAppName
+│  │          └───manifest.xml
+│  │
+│  ├──platform
+│  └──...
+│
+└──shopwareAppTemplate
+...
+```
+
+### Combining both in one docker setup
+
+Once your Shopware development setup is ready to go you need to add your app to it.  
+This is done by adding the services to your `development/docker-compose.yml`. 
+
+At first, you need to add two networks. One for your app system and another one for combining the app system with Shopware.  
+This is done by simply adding the networks `appSystem` and `development` to your existing ones:
+```Yaml
+networks:
+    shopware:
+    appSystem:
+    development:
+```
+The `appSystem`-network is only for your app server and the app database.  
+The `development`-network is used to combine your app server with the Shopware server.  
+
+Now you need to define the `services` in your `development/docker-compose.yml`. Insert the following to firstly add your app server.   
+```Yaml
+services:
+[...]
+  example_app_server:
+    image: shopware/development:local
+    volumes:
+      - "../shopwareAppTemplate:/app"
+      - "~/.composer:/.composer"
+    environment:
+      CONTAINER_UID: 1000
+      APPLICATION_UID: 1000
+      APPLICATION_GID: 1000
+    ports:
+      - "127.0.0.1:7777:8000"
+    networks:
+      appSystem:
+      development:
+        aliases:
+          - example
+```
+This adds a new container to your docker setup running your app server's code. The new container is available at the networks `appSystem` and `development`.  
+In the `development`-network your app server has the alias `example`. This will be the url which your Shopware server needs to communicate with.  
+This is also the url which you should use in your `manifest.xml` except for iframes.
+The `volumes` represents the relative path to your app.  
+And `ports` exposes port `8000` to `127.0.0.1:7777` to us so that we can go to `127.0.0.1:7777` or `localhost:7777` to directly connect to your app server.  
+This will come in handy when we register your own modules to use iframes.  
+
+The next step is to also add your mysql server to your docker setup.  
+This is as easy as it was for your app server.  
+Simply add this to your `development/docker-compose.yml`.
+```Yaml
+services:
+[...]
+  example_mysql:
+    build: dev-ops/docker/containers/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+    ports:
+      - "5506:3306"
+    volumes:
+      - ./dev-ops/docker/_volumes/mysql-example:/mysql-data
+    networks:
+      appSystem:
+        aliases:
+          - appmysql
+```
+As you already know you connect your mysql server to the same network as your app server and give it the alias `appmysql`.  
+Furthermore, you can now connect to your database on port `5506` from outside of the docker container.  
+Last but not least we define the credentials for the mysql server and you are done with this.  
+
+Now you need to add him to your `development`-network and give him an alias as follows:  
+```Yaml
+services:
+[...]
+  app_server:
+    image: shopware/development:latest
+    networks:
+      shopware:
+        aliases:
+          - docker.vm
+      development:
+        aliases:
+          - shopware
+    extra_hosts:
+      - "docker.vm:127.0.0.1"
+    volumes:
+      - ~/.composer:/.composer
+    tmpfs:
+      - /tmp:mode=1777
+```
+Now your app server can communicate with the Shopware server and your app server can also communicate with your app database.
+
+### Access your app server via ssh
+
+To easily access your app server via ssh, you need to create this script `development/dev-ops/docker/actions/ssh-app-server.sh`.
+```shell script
+#!/usr/bin/env bash
+
+TTY: docker exec -i --env COLUMNS=`tput cols` --env LINES=`tput lines` -u __USERKEY__ -t __EXAMPLE_APP_SERVER_ID__ bash
+```
+This script can be executed from your `development` folder with `./psh.phar docker:ssh-app-server`.  
+Keep in mind that this is only possible when the app server has been started with `./psh.phar docker:start` from your development folder.  
+
+To make sure this script actually knows the ID of your app server which is running in the docker container, you need to define the `EXAMPLE_APP_SERVER_ID` in the `development/.psh.yaml.override`.  
+Your `development/.psh.yaml.override` should look like this:
+```Yaml
+...
+dynamic:
+  ...
+  EXAMPLE_APP_SERVER_ID: docker-compose ps -q example_app_server
+  ...
+...
+```
+
+### Initialising the server 
+
+To initialise the app server and the app database you should access your app server via ssh and run `composer install --no-interaction`.  
+Next you need to change your `shopwareAppTemplate/.env` and set the DATABASE_URL to `mysql://app:app@appmysql:3306/main`.  
+This should look familiar to you because you just configured it in the `development/docker-compose.yml`.  
+
+The next steps should be done while connected over ssh to your app server.  
+Now you can set up the database by simply typing `bin/console doctrine:database:create`.  
+This will create your database with name `main`.  
+Then execute the migrations with `bin/console doctrine:migrations:migrate --no-interaction`. Now your database is ready.  
+
+### Registration of local apps
+
+This last step assumes that you already have a valid `manifest.xml` in the correct folder.  
+In order to check this, make sure your `manifest` is in `development/custom/apps/yourAppName/manifest.xml`.  
+Then access your local Shopware instance via ssh with `./psh.phar docker:ssh` and execute the check with `bin/console app:validate`.  
+This will tell you if you provided a valid `manifest.xml`.
+
+For the sake of simplicity you need to change the `APP_URL` of your Shopware instance to match the network-alias you gave him.  
+This should be done in your `development/.psh.yaml.override` which should look like this:
+```Yaml
+...
+const:
+  ...
+  APP_URL: "http://shopware"
+  ...
+...
+```  
+
+To make sure your `APP_URL` changed you need to reconnect to your Shopware instance via ssh with `./psh.phar docker:ssh`.  
+Now your `APP_URL` changed and you can register your app via `bin/console app:refresh`.  This can also be done by `bin/console app:install yourAppName`.  
+In order to access the Shopware admin you should run `./psh.phar administration:watch`. Now you can access the admin on `localhost:8080`. 
+
+**Note:** Like with plugins, apps get installed as inactive. You can activate them by passing the `--activate` flag to the `app:install` command or by executing `app:activate`. 
+
+### Working with iframes
+
+Due to the fact that the aliases for your app server only work inside the docker container, you need to change it in the `manifest.xml`.  
+In contrast to every other action, like webhooks or action buttons, iframes need to be accessible from outside the docker container.  
+For this purpose iframes are the only thing in your `manifest.xml` where you need to set the source to `http://localhost:7777` as defined in the `development/docker-compose.yml`. 
+
+## Local development with Platform.sh
+#### Forwarding requests
+
+In order to register your local Shopware instance to your app on Platform.sh you need to be able to connect from Platform.sh to your client.  
+To do so, just forward the request from your app to your local Shopware instance. This can be done with port forwarding.  
+This means that every request which is addressed to `localhost:8000` on your app will be forwarded to your defined port to your client.  
+But why should your app send requests to itself? This happens when your app wants to communicate with your local Shopware instance which should run on `localhost:8000`.  
+Then your app will send each request to `localhost:8000` which then should get forwarded to your client to the port where Shopware is running on.  
+
+####But how does this work in practice?
+
+To accomplish this, just copy the command from Platform.sh which can be found in the top right corner and paste it into your terminal.  
+This should look something like this `ssh abcde12345-master-12345--app@ssh.de-2-platform.sh`.  
+To make the authentication much easier we recommend installing the [Platform.sh cli](https://docs.platform.sh/development/cli.html) and log in into your project.  
+
+To redirect the requests we need to add the option `-R` with a few parameters to the copied Platform.sh command.  
+First we define the port on the remote server which should be forwarded to us. In our case this is port `8000`.  
+The second parameter is the destination on your client. This will be your local Shopware instance which is running on `localhost:8000`.  
+If you put everything together this should look something like this `ssh -R 8000:localhost:8000 abcde12345-master-12345--app@ssh.de-2-platform.sh`.  
+The last thing you have to do is to change all URLs in your `manifest.xml` to point to your Platform.sh URL and you are done.  
+For further information have a look at [remote forwarding](https://www.ssh.com/ssh/tunneling/example). 
+
+#### Switching between Platform.sh and local development
+
+The best way to switch from Platform.sh to your local setup and vice versa is to have two `manifest.xml` files.  
+Just create the first one for your Platform.sh setup with
+`bin/console app:create-manifest APP_NAME=PlatformshSetup APP_URL_CLIENT=https://your-client-url.platform.sh APP_URL_BACKEND=https://your-backend-url.platform.sh`
+and the other one for your local setup with  
+`bin/console app:create-manifest APP_NAME=LocalSetup APP_URL_CLIENT=http://localhost/your-local-client-url APP_URL_BACKEND=http://localhost/your-local-backend-url`
+Then place them in `development/custom/apps/your-app-name/manifest.xml` and you are good to go.  
+
+Once you switch to local development you have to make sure to change your `APP_URL` of your Shopware instance in your `development/.psh.yaml.override` back to `http://localhost:8000`.
+This can be done as follows:
+```yaml
+const:
+  APP_URL: "http://localhost:8000"
+```
+And vice versa change it to `http://shopware` for development with Platform.sh.  
+After changing your `APP_URL` you need to execute `bin/console app:url-change:resolve`. More about this [here](https://docs.shopware.com/en/shopware-platform-dev-en/app-system-guide/setup#detecting-app-url-changes).
