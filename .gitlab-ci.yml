@@ -26,18 +26,17 @@ Unit:
     - docker:dind
   before_script:
     - apk add --no-cache docker-compose git
-    - cd ..
-    - git clone http://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.shopware.com/shopware/6/product/development.git
-    - rm -rf development/platform
-    - git clone http://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.shopware.com/shopware/6/product/platform.git development/platform
-    - rm -rf development/docker-compose.yml
-    - cp -v shopwareappexample/dev-ops/gitlab/docker-compose.yml development/
-    - cp -v shopwareappexample/dev-ops/gitlab/.psh.yaml.override development/
-    - cd development
+    - git clone http://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.shopware.com/shopware/6/product/development.git build/development
+    - rm -rf build/development/platform
+    - git clone http://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.shopware.com/shopware/6/product/platform.git build/development/platform
+    - rm -rf build/development/docker-compose.yml
+    - cp -v ../shopwareappexample/dev-ops/gitlab/docker-compose.yml ../shopwareappexample/build/development/
+    - cp -v ../shopwareappexample/dev-ops/gitlab/.psh.yaml.override ../shopwareappexample/build/development/
+    - cd build/development
     - docker-compose up -d
     - docker exec "$(docker-compose ps -q example_app_server)" composer install
-    - rm -rf ../shopwareappexample/.env
-    - mv ../shopwareappexample/dev-ops/gitlab/.env ../shopwareappexample/.env
+    - rm -rf ../../shopwareappexample/.env
+    - mv ../../../shopwareappexample/dev-ops/gitlab/.env ../../../shopwareappexample/.env
     - docker exec "$(docker-compose ps -q example_app_server)" bin/console doctrine:database:create
     - docker exec "$(docker-compose ps -q example_app_server)" bin/console doctrine:migrations:migrate --no-interaction
-    - cp -r ../shopwareappexample/dev-ops/myAppName ../development/custom/apps
+    - cp -r ../../../shopwareappexample/dev-ops/myAppName ../../../shopwareappexample/build/development/custom/apps
