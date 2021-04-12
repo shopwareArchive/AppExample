@@ -26,14 +26,14 @@ class OrderListService extends AbstractController
         $httpClient = $client->getHttpClient();
 
         //Creates a new version of the order.
-        $versionResponse = $httpClient->post('/api/v2/_action/version/order/' . $orderId);
+        $versionResponse = $httpClient->post('/api/_action/version/order/' . $orderId);
         $versionId = json_decode($versionResponse->getBody()->getContents(), true)['versionId'];
 
         //Updates the order.
         $client->updateEntity('order', $orderId, $data);
 
         //Merges the changes into the new version of the order.
-        $httpClient->post('/api/v2/_action/version/merge/order/' . $versionId, ['headers' => ['sw-version-id' => $versionId]]);
+        $httpClient->post('/api/_action/version/merge/order/' . $versionId, ['headers' => ['sw-version-id' => $versionId]]);
     }
 
     //Generates the order list table data from an order.
