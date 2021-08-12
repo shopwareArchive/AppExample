@@ -71,10 +71,11 @@ class Authenticator
         $query = $request->query->all();
 
         $queryString = sprintf(
-            'shop-id=%s&shop-url=%s&timestamp=%s',
+            'shop-id=%s&shop-url=%s&timestamp=%s&sw-version=%s',
             $query['shop-id'],
             $query['shop-url'],
-            $query['timestamp']
+            $query['timestamp'],
+            $query['sw-version']
         );
 
         $hmac = \hash_hmac('sha256', $queryString, $shopSecret);
