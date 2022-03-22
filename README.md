@@ -1,5 +1,7 @@
 ## Platform-sh
 
+This template is deprecated. use https://github.com/shopware/AppTemplate instead
+
 This is a fully working example based on the [development template](https://github.com/shopwareLabs/AppTemplate).
 The development template is optimized for the use with [platform.sh](https://platform.sh/).  
 
